@@ -25,33 +25,31 @@ void UART2_Init(void){
     //   bits 31-24 unlock key 0xB1
     //   bit 1 is Clear reset sticky bit
     //   bit 0 is reset gpio port
-  UART0->GPRCM.RSTCTL = 0xB1000003;
-  UART0->GPRCM.PWREN = 0x26000001;
+  UART2->GPRCM.RSTCTL = 0xB1000003;
+  UART2->GPRCM.PWREN = 0x26000001;
   Clock_Delay(24); // time for uart to power up
-  IOMUX->SECCFG.PINCM[PA10INDEX]  = 0x00000082;
-  IOMUX->SECCFG.PINCM[PA11INDEX]  = 0x00040082;
-  TxFifo_Init();
-  RxFifo_Init();
-  UART0->CLKSEL = 0x08; // bus clock
-  UART0->CLKDIV = 0x00; // no divide
-  UART0->CTL0 &= ~0x01; // disable UART0
-  UART0->CTL0 = 0x00020018;
+  IOMUX->SECCFG.PINCM[PA22INDEX]  = 0x00040082;
+  Fifo1_Init();
+  UART2->CLKSEL = 0x08; // bus clock
+  UART2->CLKDIV = 0x00; // no divide
+  UART2->CTL0 &= ~0x01; // disable UART0
+  UART2->CTL0 = 0x00020018;
  // assumes an 80 MHz bus clock
-  UART0->IBRD = 21;//   divider = 21+45/64 = 21.703125
-  UART0->FBRD = 45; // baud =2,500,000/21.703125 = 115,191
-  UART0->LCRH = 0x00000030;
-  UART0->CPU_INT.IMASK = 0x0C01;
+  UART2->IBRD = 1250;//   divider = 21+45/64 = 21.703125
+  UART2->FBRD = 0; // baud =2,500,000/21.703125 = 115,191
+  UART2->LCRH = 0x00000030;
+  UART2->CPU_INT.IMASK = 0x1;
   // bit 11 TXINT
   // bit 10 RXINT
   // bit 0  Receive timeout
-  UART0->IFLS = 0x0422;
+  UART2->IFLS = 0x0422;
   // bits 11-8 RXTOSEL receiver timeout select 4 (0xF highest)
   // bits 6-4  RXIFLSEL 2 is greater than or equal to half
   // bits 2-0  TXIFLSEL 2 is less than or equal to half
-  NVIC->ICPR[0] = 1<<15; // UART0 is IRQ 15
-  NVIC->ISER[0] = 1<<15;
-  NVIC->IP[3] = (NVIC->IP[3]&(~0xFF000000))|(2<<30);	// priority (bits 31,30) 
-  UART0->CTL0 |= 0x01; // enable UART0
+  NVIC->ICPR[0] = 1<<14; // UART0 is IRQ 15
+  NVIC->ISER[0] = 1<<14;
+  NVIC->IP[3] = (NVIC->IP[3]&(~0x00c00000))|(2<<22);	// priority (bits 31,30) 
+  UART2->CTL0 |= 0x01; // enable UART0
 
     // Enable power to UART1 peripherals
      // write this
@@ -74,30 +72,20 @@ void UART2_Init(void){
 // Output: Return 0 if the FIFO1 is empty
 //         Return nonzero data from the FIFO1 if available
 char UART2_InChar(void){
-   while((UART0->STAT&0x04) == 0x04){}; // wait while RxFifo empty
-   return((char)(UART0->RXDATA));
+   return(Fifo1_Get());
    }
 
 
 void UART2_IRQHandler(void){ 
   uint32_t status;
-  status = UART0->CPU_INT.IIDX; // reading clears bit in RIS
-  if(status == 0x01){       // 0x01 receive timeout RTOUT
-    copyHardwareToSoftware();
-  }else if(status == 0x0B){ // 0x0B receive RXINT
-    copyHardwareToSoftware();
-  }else if(status == 0x0C){ // 0x0C transmit TXINT
-    copySoftwareToHardware();
-    if(TxFifo_Size() == 0){         	// software TX FIFO is empty
-      UART0->CPU_INT.IMASK &= ~0x0800;	// disable TX FIFO interrupt
-    }
-  }
-
 // write this
 // acknowledge RTOUT
   GPIOB->DOUTTGL31_0 = BLUE; // toggle PB22 (minimally intrusive debugging)
   GPIOB->DOUTTGL31_0 = BLUE; // toggle PB22 (minimally intrusive debugging)
-  // read all data and put in FIFO1
+  status = UART2->CPU_INT.IIDX; // reading clears bit in RIS
+  if(status == 0x01){       // 0x01 receive timeout RTOUT
+    }
+    //incomplete
   GPIOB->DOUTTGL31_0 = BLUE; // toggle PB22 (minimally intrusive debugging)
 }
 //For each register in the above function, look up the definition in the book or in the data sheet. You will make the following changes
